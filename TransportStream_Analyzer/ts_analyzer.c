@@ -90,44 +90,6 @@ ProgramAssociationTable *current;
 ProgramAssociationTable *recent;
 
 // MARK: - Utilities
-typedef struct {
-    char *data;
-    int offset;
-} DataReader;
-
-// 1 ~ 8
-uint8_t readSmallData(DataReader reader, int length) {
-    int index = reader.offset / sizeof(char);
-    int loc = reader.offset % sizeof(char);
-    
-    uint8_t result;
-    if (loc + length > 8) {
-        // 두 index에 걸쳐 있음
-        uint8_t r1 = readSmallData(reader, 8 - loc);
-        uint8_t r2 = readSmallData(reader, length - (8 - loc));
-        
-        result = (r1 << (8-loc)) | r2;
-    } else {
-        result = (reader.data[index] >> (8 - loc - length)) & ((1 << length) - 1);
-    }
-    reader.offset += length;
-    
-    return result;
-}
-
-uint32_t readData(DataReader reader, int length) {
-    uint32_t result = 0;
-    
-    while (length > 0) {
-        uint8_t step = ((length - 1) % 8) + 1;
-        // 처음에만 8 미만의 숫자가 나오고, 이후에는 8
-        result = (result << 8) | readSmallData(reader, step);
-        
-        length = length - step;
-    }
-    
-    return result;
-}
 
 void print_binary(char *c, int count) {
     // 10000000 01000000 00100000 00010000 00001000 00000100 00000010 00000001
@@ -141,6 +103,57 @@ void print_binary(char *c, int count) {
     }
     printf("\n");
 }
+
+void print_binary_int(uint32_t num) {
+    // 10000000 01000000 00100000 00010000 00001000 00000100 00000010 00000001
+    for(int i = 0; i < 32; i++) {
+        printf("%d", (num >> (31-i)) & 0x01);
+        if (i % 8 == 7) {
+            printf(" ");
+        }
+    }
+    printf("\n");
+}
+
+typedef struct {
+    char *data;
+    int offset;
+} DataReader;
+
+// 1 ~ 8
+uint8_t readSmallData(DataReader *reader, int length) {
+    int index = reader->offset / 8;
+    int loc = reader->offset % 8;
+    
+//    printf("offset: %d, length: %d, index: %d, loc: %d\n", reader->offset, length, index, loc);
+    uint8_t result;
+    if (loc + length > 8) {
+        // 두 index에 걸쳐 있음
+        uint8_t r1 = readSmallData(reader, 8 - loc);
+        uint8_t r2 = readSmallData(reader, length - (8 - loc));
+        
+        result = (r1 << (8-loc)) | r2;
+    } else {
+        result = (reader->data[index] >> (8 - loc - length)) & ((1 << length) - 1);
+    }
+    reader->offset += length;
+    return result;
+}
+
+uint32_t readData(DataReader *reader, int length) {
+    uint32_t result = 0;
+//    printf("reader->offset: %d, length: %d\n", reader->offset, length);
+    while (length > 0) {
+        uint8_t step = ((length - 1) % 8) + 1;
+        // 처음에만 8 미만의 숫자가 나오고, 이후에는 8
+        result = (result << 8) | readSmallData(reader, step);
+//        print_binary_int(result);
+        length = length - step;
+    }
+    
+    return result;
+}
+
 
 // MARK: - Print functions
 void print_pid_info(int pid) {
@@ -191,14 +204,18 @@ void print_pid_info(int pid) {
 }
 
 // MARK: - Analyzers
-// 76543210
 ProgramNumberPIDInfo* analyze_program_number_pid_association(char *data) {
     ProgramNumberPIDInfo* info = (ProgramNumberPIDInfo *)malloc(sizeof(ProgramNumberPIDInfo));
     
-    info->programNumber = (data[0] << 8) | data[1];
-    info->reserved = (data[2] >> 5) & 0x07;
-    info->pid = (data[2] & 0x1F) | data[3];
+    DataReader *reader = (DataReader *)malloc(sizeof(DataReader));
+    reader->data = data;
+    reader->offset = 0;
     
+    info->programNumber = readData(reader, 16);
+    info->reserved = readData(reader, 3);
+    info->pid = readData(reader, 13);
+    
+    free(reader);
     return info;
 }
 
@@ -208,18 +225,23 @@ ProgramAssociationTable* analyze_program_association_table(char *data) {
     
     pointerField = data[0] + 1;
     
-    table->tableID = data[pointerField];
-    table->sectionSyntaxIndicator = (data[pointerField + 1] >> 7) & 0x01;
-    table->privateBit = (data[pointerField + 1] >> 6) & 0x01;
-    table->reserved1 = (data[pointerField + 1] >> 4) & 0x03;
-    table->sectionLength = ((data[pointerField + 1] & 0x0F) << 8) | data[pointerField + 2]; // 0x00??????????
-
-    table->transportStreamID = (data[pointerField + 3] << 8) | data[pointerField + 4];
-    table->reserved2 = (data[pointerField + 5] >> 6) & 0x03;
-    table->versionNumber = (data[pointerField + 5] >> 1) & 0x1F;
-    table->currentNextIndicator = data[pointerField + 5] & 0x01;
-    table->sectionNumber = data[pointerField + 6];
-    table->lastSectionNumber = data[pointerField + 7];
+    DataReader *reader = (DataReader *)malloc(sizeof(DataReader));
+    reader->data = data + pointerField;
+    reader->offset = 0;
+    
+    table->tableID = readData(reader, 8);
+    table->sectionSyntaxIndicator = readData(reader, 1);
+    table->privateBit = readData(reader, 1);
+    table->reserved1 = readData(reader, 2);
+    table->sectionLength = readData(reader, 12);
+    int defaultInfoLen = reader->offset;
+    
+    table->transportStreamID = readData(reader, 16);
+    table->reserved2 = readData(reader, 2);
+    table->versionNumber = readData(reader, 5);
+    table->currentNextIndicator = readData(reader, 1);
+    table->sectionNumber = readData(reader, 8);
+    table->lastSectionNumber = readData(reader, 8);
     
     // includes belows
     //   transport_stream_id (16 bits)
@@ -228,20 +250,22 @@ ProgramAssociationTable* analyze_program_association_table(char *data) {
     //   current_next_indicator (1 bits)
     //   section_number (8 bits)
     //   last_section_number (8 bits)
-    int sectionInfoSize = (16 + 2 + 5 + 1 + 8 + 8) / 8;
+    int sectionInfoSize = (reader->offset - defaultInfoLen) / 8;
     
     int crcSize = 32 / 8;
-    int offset = sectionInfoSize + (8 + 1 + 1 + 2 + 12) / 8;
+//    int offset = reader->offset / 8;
     
     table->programInfoCount = (table->sectionLength - sectionInfoSize - crcSize) / 4;
     table->infos = (ProgramNumberPIDInfo **) malloc(sizeof(ProgramNumberPIDInfo *) * table->programInfoCount);
     for (int i = 0; i < table->programInfoCount; i++) {
-        table->infos[i] = analyze_program_number_pid_association(data + pointerField + offset);
-        offset = offset + 4;
+        table->infos[i] = analyze_program_number_pid_association(data + pointerField + (reader->offset / 8));
+        reader->offset = reader->offset + 32;
     }
     
-    table->crc32 = *(int *)(data + pointerField + offset);
+    table->crc32 = readData(reader, 32);
 //    print_binary(data + pointerField + offset, 4);
+    
+    free(reader);
     
     return table;
 }
@@ -249,14 +273,19 @@ ProgramAssociationTable* analyze_program_association_table(char *data) {
 ElementStreamInfo* analyze_element_stream_info(char *data) {
     ElementStreamInfo *info = (ElementStreamInfo *)malloc(sizeof(ElementStreamInfo));
     
-    // 76543210
-    info->streamType = data[0];
-    info->reserved1 = (data[1] >> 5) & 0x07;
-    info->elementaryPID = ((data[1] & 0x1F) << 8) | data[2];
-    info->reserved2 = (data[3] >> 4) & 0x0F;
-    info->esInfoLength = ((data[3] & 0x0F) << 8) | data[4];
+    DataReader *reader = (DataReader *)malloc(sizeof(DataReader));
+    reader->data = data;
+    reader->offset = 0;
+    
+    info->streamType = readData(reader, 8);
+    info->reserved1 = readData(reader, 3);
+    info->elementaryPID = readData(reader, 13);
+    info->reserved2 = readData(reader, 4);
+    info->esInfoLength = readData(reader, 12);
+    
     // TODO: analyze descriptions
     
+    free(reader);
     return info;
 }
 
@@ -324,14 +353,20 @@ ProgramMapTable* analyze_program_map_table(char *data) {
 int analyzeAdaptationFieldData(char *data) {
     int adaptationFieldLength = data[0];
     if (adaptationFieldLength > 0) {
-        char discontinuityIndicator = (data[1] >> 7) & 1;
-        char randomAccessIndicator = (data[1] >> 6) & 1;
-        char elementaryStreamPriorityIndicator = (data[1] >> 5) & 1;
-        char PCRFlag = (data[1] >> 4) & 1;
-        char OPCRFlage = (data[1] >> 3) & 1;
-        char splicingPointFlag = (data[1] >> 2) & 1;
-        char transportPrivateDataFlag = (data[1] >> 1) & 1;
-        char adaptationFieldExtensionFlag = (data[2] >> 7) & 1;
+        DataReader *reader = (DataReader *)malloc(sizeof(DataReader));
+        reader->data = data + 1;
+        reader->offset = 0;
+        
+        char discontinuityIndicator = readData(reader, 1);
+        char randomAccessIndicator = readData(reader, 1);
+        char elementaryStreamPriorityIndicator = readData(reader, 1);
+        char PCRFlag = readData(reader, 1);
+        char OPCRFlage = readData(reader, 1);
+        char splicingPointFlag = readData(reader, 1);
+        char transportPrivateDataFlag = readData(reader, 1);
+        char adaptationFieldExtensionFlag = readData(reader, 1);
+        
+        free(reader);
         
         printf("Adaptaion Field :\n");
         printf("\tDiscontinuity indicator : %d\n", discontinuityIndicator);
@@ -342,6 +377,7 @@ int analyzeAdaptationFieldData(char *data) {
         printf("\tSplicing point flag : %d\n", splicingPointFlag);
         printf("\tTransport private data flag : %d\n", transportPrivateDataFlag);
         printf("\tAdaptation field extension flag : %d\n", adaptationFieldExtensionFlag);
+        
     }
     return adaptationFieldLength;
 }
@@ -372,7 +408,7 @@ void print_program_association_table(ProgramAssociationTable *info) {
     }
     
     printf("\tCRC_32: ");
-    print_binary((char *)&info->crc32, 4);
+    print_binary_int(info->crc32);
     printf("\n");
 }
 
@@ -421,15 +457,21 @@ void analyzeData(char *data, int pid) {
 }
 
 void analyzeTransportPacket(char *packet) {
-    char syncByte = packet[0];
-    char tei = (packet[1] >> 7) & 1;
-    char pusi = (packet[1] >> 6) & 1;
-    char transportPriority = (packet[1] >> 5) & 1;
-    int pid = ((packet[1] & 0x1F) << 8) | packet[2];
+    DataReader *reader = (DataReader *)malloc(sizeof(DataReader));
+    reader->data = packet;
+    reader->offset = 0;
     
-    char tsc = (packet[3] >> 6) & 0x03; // transport_scrambling_control
-    char adaptationFieldControl = (packet[3] >> 4) & 0x03;
-    char continuityCounter = packet[3] & 0xF;
+    char syncByte = readData(reader, 8);
+    char tei = readData(reader, 1);
+    char pusi = readData(reader, 1);
+    char transportPriority = readData(reader, 1);
+    int pid = readData(reader, 13);
+    
+    char tsc = readData(reader, 2); // transport_scrambling_control
+    char adaptationFieldControl = readData(reader, 2);
+    char continuityCounter = readData(reader, 4);
+    
+    free(reader);
     
     printf("tei : %d, pusi : %d, transportPriority: %d, pid : %04X\n", tei, pusi, transportPriority, pid);
     print_pid_info(pid);
@@ -483,7 +525,7 @@ int main(int argc, char* argv[]) {
         
         print_binary(packet, 188);
         
-        if (count > 20) {
+        if (count > 4) {
             break;
         }
     }
