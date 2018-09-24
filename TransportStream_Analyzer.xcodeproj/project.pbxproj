@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		6EF9BC87214507C300810F1A /* ts_analyzer.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EF9BC86214507C300810F1A /* ts_analyzer.c */; };
+		6EF9BC8A214DE67600810F1A /* tsprinter.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EF9BC89214DE67600810F1A /* tsprinter.c */; };
+		6EF9BC8D214DE69E00810F1A /* tsmodel.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EF9BC8C214DE69E00810F1A /* tsmodel.c */; };
+		6EF9BC90214DE7C300810F1A /* tsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EF9BC8F214DE7C300810F1A /* tsutil.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -26,6 +29,12 @@
 		6EF9BC7B214507B000810F1A /* TransportStream_Analyzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TransportStream_Analyzer; sourceTree = BUILT_PRODUCTS_DIR; };
 		6EF9BC85214507C200810F1A /* ts_analyzer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ts_analyzer.h; sourceTree = "<group>"; };
 		6EF9BC86214507C300810F1A /* ts_analyzer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ts_analyzer.c; sourceTree = "<group>"; };
+		6EF9BC88214DE67600810F1A /* tsprinter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tsprinter.h; sourceTree = "<group>"; };
+		6EF9BC89214DE67600810F1A /* tsprinter.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tsprinter.c; sourceTree = "<group>"; };
+		6EF9BC8B214DE69E00810F1A /* tsmodel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tsmodel.h; sourceTree = "<group>"; };
+		6EF9BC8C214DE69E00810F1A /* tsmodel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tsmodel.c; sourceTree = "<group>"; };
+		6EF9BC8E214DE7C300810F1A /* tsutil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tsutil.h; sourceTree = "<group>"; };
+		6EF9BC8F214DE7C300810F1A /* tsutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tsutil.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +69,12 @@
 			children = (
 				6EF9BC85214507C200810F1A /* ts_analyzer.h */,
 				6EF9BC86214507C300810F1A /* ts_analyzer.c */,
+				6EF9BC8E214DE7C300810F1A /* tsutil.h */,
+				6EF9BC8F214DE7C300810F1A /* tsutil.c */,
+				6EF9BC8B214DE69E00810F1A /* tsmodel.h */,
+				6EF9BC8C214DE69E00810F1A /* tsmodel.c */,
+				6EF9BC88214DE67600810F1A /* tsprinter.h */,
+				6EF9BC89214DE67600810F1A /* tsprinter.c */,
 			);
 			path = TransportStream_Analyzer;
 			sourceTree = "<group>";
@@ -121,6 +136,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				6EF9BC87214507C300810F1A /* ts_analyzer.c in Sources */,
+				6EF9BC8A214DE67600810F1A /* tsprinter.c in Sources */,
+				6EF9BC90214DE7C300810F1A /* tsutil.c in Sources */,
+				6EF9BC8D214DE69E00810F1A /* tsmodel.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
